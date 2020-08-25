@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Mercury</title>
+  <style>
+    body {
+      margin: 0;
+      background: #252525;
+    }
+    nav {
+      display: flex;
+      background: #323232;
+      height: 2.5rem;
+      border-bottom: 1px solid #ED4E33;
+      margin-bottom: 1rem;
+    }
+    
+    nav > button {
+      border: 0;
+      background: transparent;
+      color: #FD7E63;
+      width: 3rem;
+      outline: none;
+      margin-left: 1rem;
+    }
+    nav > button:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    nav > select {
+      border: 0;
+      background: transparent;
+      color: #FD7E63;
+    }
+
+    .editor {
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+      height: calc(100vh - 5rem);
+    }
+    .editor > .code {
+      display: flex;
+      min-height: 60vh;
+    }
+    .editor > .code > .wrap {
+      width: 50%;
+    }
+
+    .editor > .debug {
+      flex-grow: 1;
+      display: flex;
+    }
+
+    #console_output_DOM {
+      width: 100%;
+      height: 100%;
+      min-height: 10rem;
+      background: #1E1E1E;
+      color: #CCCCCC;
+      font-size: 1rem;
+      font-family: Microsoft YaHei UI;
+    }
+  </style>
+  
+  <script src="./lib/codemirror.js"></script>
+  <link rel="stylesheet" href="./lib/codemirror.css">
+  <link rel="stylesheet" href="./lib/goldenbears.css">
+  <script src="./mode/simple.js"></script>
+
+  <script src="./src/mercury-assembler.js"></script>
+</head>
+<body>
+  <nav>
+    <button class="" title="Ctrl+Enter" id="assemble_btn_DOM">编译</button>
+    <select id="assembly_output_format_DOM">
+      <option value="16">HEX</option>
+      <option value="2">BIN</option>
+      <option value="-2">BIN pretty</option>
+    </select>
+
+    <button class="" id="note_toggle_btn_DOM">关于</button>
+  </nav>
+  <section class="editor">
+    <div class="code">
+      <div class="wrap">
+        <textarea class="" id="assembly_input_DOM"></textarea>
+      </div>
+      <div class="wrap">
+        <textarea class="" id="assembly_output_DOM" readonly></textarea>
+      </div>
+    </div>
+    <div class="debug">
+      <textarea class="" id="console_output_DOM" readonly></textarea>
+    </div>
+  </section>
+
+
+  <script>
+  CodeMirror.defineSimpleMode("risc-v", {
+    // The start state contains the rules that are intially used
+    start: [
+      // The regex matches the token, the token property contains the type
+      //{regex: /"(?:[^\\]|\\.)*?(?:"|$)/, token: "string"},
+      
+      // match opcode
+      // TODO: add bxx & jal & jalr
+      {regex: /(?:lb|lh|lw|ld|lbu|lwu|addi|slli|slti|sltiu|xori|srli|srai|ori|andi|auipc|addiw|slliw|srliw|sraiw|sb|sh|sw|sd|add|sub|sll|slt|sltu|xor|srl|sra|or|and|lui|addw|subw|sllw|srlw|sraw)\b/, token: ["keyword"]},
+      
+      // match register
+      {regex: /x([0-9]|1[0-9]|2[0-9]|3[0-1])\b/, token: "variable-2"},
+      {regex: /(zero|ra|sp|gp|tp|fp|t[0-6]|s(10|11|[0-9])|a[0-7])\b/, token: "variable-2"},
+      
+      // Rules are matched in the order in which they appear, so there is
+      // no ambiguity between this one and the one above
+      {regex: /0x[a-f\d]+|[-+]?(?:\.\d+|\d+\.?\d*)(?:e[-+]?\d+)?/i, token: "number"},
+      {regex: /#.*/, token: "comment"},
+      {regex: /;.*/, token: "comment"},
+      //{regex: /\/(?:[^\\]|\\.)*?\//, token: "variable-3"},
+      // A next property will cause the mode to move to a different state
+      {regex: /\.(text|word)/, token: "tag"},
+
+      // indent and dedent properties guide autoindentation
+      {regex: /.+:/, indent: true},
+      
+      //{regex: /[a-z$][\w$]*/, token: "variable"},
+      // You can embed other modes with the mode property. This rule
+      // causes all code between << and >> to be highlighted with the XML
+      // mode.
+      //{regex: /<</, token: "meta", mode: {spec: "xml", end: />>/}}
+    ],
+    // The multi-line comment state.
+    comment: [
+      {regex: /.*/, token: "comment"}
+    ],
+    // The meta property contains global information about the mode. It
+    // can contain properties like lineComment, which are supported by
+    // all modes, and also directives like dontIndentStates, which are
+    // specific to simple modes.
+    meta: {
+      dontIndentStates: ["comment"],
+      lineComment: "#"
+    }
+  });
+
+  window.onload = function() {
+    var input_doc = CodeMirror.fromTextArea(assembly_input_DOM, {
+      mode:  "risc-v",
+      lineNumbers: true,
+      firstLineNumber: 0,
+      lineSeparator: "\n",
+      tabSize: 2,
+      theme: "goldenbears",
+    });
+    var output_doc = CodeMirror.fromTextArea(assembly_output_DOM, {
+      mode:  "risc-v",
+      lineNumbers: true,
+      firstLineNumber: 0,
+      theme: "goldenbears",
+    });
+
+
+    input_doc.setValue(`addi x1, x0, 6      # set the value of the data
+addi x2, x0, 2      # set the mem addr to be stored
+sw x1, 0(x2)        # store the data
+`);
+
+
+
+
+    assemble_btn_DOM.addEventListener("click", function() {
+      let output = assemble(input_doc.getValue());
+      output_doc.setValue(output);
+    });
+    note_toggle_btn_DOM.addEventListener("click", function() {
+      console_output_DOM.value += `> about\n这是一个将 RISC-V 汇编语言转换为机器代码的小工具\n仍然在调试阶段\n目前使用到 label 的指令还不能正确编译 (jal, jalr, bxx)\n`;
+    });
+  }
+
+  window.addEventListener("keydown", function(e) {
+    if (e.keyCode == 13 && e.ctrlKey) {
+      assemble();
+    }
+  })
+
+  </script>
+</body>
+</html>
