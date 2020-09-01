@@ -20,7 +20,7 @@
 .cm-s-goldenbears .cm-number { color:  #B9D3B6; } /**/
 .cm-s-goldenbears .cm-def { color: #8DA6CE; }
 .cm-s-goldenbears span.cm-variable-2, .cm-s-goldenbears span.cm-tag { color: rgb(156, 220, 254); } /**/
-.cm-s-goldenbears span.cm-variable-3, .cm-s-goldenbears span.cm-def, .cm-s-goldenbears span.cm-type { color: #607392; } /**/
+.cm-s-goldenbears span.cm-variable-3, .cm-s-goldenbears span.cm-def, .cm-s-goldenbears span.cm-type { color: rgb(220, 220, 170); } /**/
 .cm-s-goldenbears .cm-operator { color: #cda869; } /**/
 .cm-s-goldenbears .cm-comment { color:rgb(106, 153, 85); font-style:italic; font-weight:normal; } /**/
 .cm-s-goldenbears .cm-string { color:#8f9d6a; font-style:italic; } /**/

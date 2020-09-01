@@ -111,40 +111,56 @@ var parseImm = function(imm, type) {
         return 0;
     case "I":
         value = parseInt(imm);
-        if (value > 2047 || value < -2048) {
-        return 0xFFFFFFFE;
+        if (value > 0x7FF || value < -0x800) {
+            return 0xFFFFFFFE;
+        }
+        if (value < 0) {
+            value = 0x1000 + value;
         }
         value = value << 20;
         return value;
     case "S":
         value = parseInt(imm);
-        if (value > 2047 || value < -2048) {
-        return 0xFFFFFFFE;
+        if (value > 0x7FF || value < -0x800) {
+            return 0xFFFFFFFE;
+        }
+        if (value < 0) {
+            value = 0x1000 + value;
         }
         value = ((value & 0b111111100000) << 25) | ((value & 0b11111) << 7);
         return value;
     case "SB":
         value = parseInt(imm);
-        if (value > 2047 || value < -2048) {
-        return 0xFFFFFFFE;
+        if (value > 0x7FF || value < -0x800) {
+            return 0xFFFFFFFE;
         }
-        value = ((value & 0b100000000000) << 31) | ((value & 0b001111110000) << 25)
-                | ((value & 0b000000001111) << 8) | ((value & 0b010000000000) << 7);
+        if (value < 0) {
+            value = 0x10000 + value;
+        }
+        value = ((value & 0b1000000000000) << 19) | ((value & 0b0011111100000) << 20)
+                | ((value & 0b0000000011110) << 7) | ((value & 0b0100000000000) >> 4);
         return value;
     case "U":
         value = parseInt(imm);
-        if (value > 1048575 || value < -1048576) {
-        return 0xFFFFFFFE;
+        if (value > 0x7FFFFFFF || value < -0x80000000) {
+            return 0xFFFFFFFE;
+        }
+        if (value < 0) {
+            value = 0x100000000 + value;
         }
         value = value << 12;
         return value;
     case "UJ":
         value = parseInt(imm);
-        if (value > 1048575 || value < -1048576) {
-        return 0xFFFFFFFE;
+        if (value > 0x1FFFFF || value < -0x200000) {
+            return 0xFFFFFFFE;
         }
-        value = ((value & 0b10000000000000000000) << 31) | ((value & 0b00000000001111111111) << 21)
-                | ((value & 0b00000000010000000000) << 20) | ((value & 0b01111111100000000000) << 12);
+        if (value < 0) {
+            value = 0x200000 + value;
+        }
+        value = ((value & 0b100000000000000000000) << 11) | ((value & 0b000000000011111111110) << 20)
+                | ((value & 0b000000000100000000000) << 9) | ((value & 0b011111111000000000000) << 0);
+        
         return value;
     }
     return 0xFFFFFFFF;
@@ -585,8 +601,7 @@ var assemble = function(code) {
             rs1 = tokens[1];
             rs2 = tokens[2];
             label = tokens[3];
-            imm = getLabel(label) - pc;
-            console.log(imm)
+            imm = tokens[3];
             break;
             case "bne":
             inst_fmt = "SB";
@@ -594,8 +609,7 @@ var assemble = function(code) {
             funct3 = 0x1;
             rs1 = tokens[1];
             rs2 = tokens[2];
-            label = tokens[3];
-            imm = getLabel(label) - pc;
+            imm = tokens[3];
             break;
             case "blt":
             inst_fmt = "SB";
@@ -603,8 +617,7 @@ var assemble = function(code) {
             funct3 = 0x4;
             rs1 = tokens[1];
             rs2 = tokens[2];
-            label = tokens[3];
-            imm = getLabel(label) - pc;
+            imm = tokens[3];
             break;
             case "bge":
             inst_fmt = "SB";
@@ -612,8 +625,7 @@ var assemble = function(code) {
             funct3 = 0x5;
             rs1 = tokens[1];
             rs2 = tokens[2];
-            label = tokens[3];
-            imm = getLabel(label) - pc;
+            imm = tokens[3];
             break;
             case "bltu":
             inst_fmt = "SB";
@@ -621,8 +633,7 @@ var assemble = function(code) {
             funct3 = 0x6;
             rs1 = tokens[1];
             rs2 = tokens[2];
-            label = tokens[3];
-            imm = getLabel(label) - pc;
+            imm = tokens[3];
             break;
             case "bgeu":
             inst_fmt = "SB";
@@ -630,8 +641,7 @@ var assemble = function(code) {
             funct3 = 0x7;
             rs1 = tokens[1];
             rs2 = tokens[2];
-            label = tokens[3];
-            imm = getLabel(label) - pc;
+            imm = tokens[3];
             break;
             case "jalr":
             inst_fmt = "I";
@@ -695,7 +705,15 @@ var assemble = function(code) {
             return "";
         }
 
+        if (!/^0x[0-9A-Fa-f]+$/.test(imm) && !/^(-)?\d+$/.test(imm)) {
+        //if (typeof(imm) == "string") {
+            console.log("imm not a number");
+            imm = symbol_table[imm] - pc;
+        }
+
         imm = parseImm(imm, inst_fmt);
+        
+
         if (imm == 0xFFFFFFFF) {
             //alert(`line: ${line_number}\nimmediate format error`);
             console_output_DOM.value += `line ${line_number}\nERROR: immediate format error\n`;
@@ -709,7 +727,7 @@ var assemble = function(code) {
         }
         
 
-        //console.log(`${opcode} ${rd} ${funct3} ${rs1} ${rs2} ${funct7} ${imm}`)
+        console.log(`${opcode} ${rd} ${funct3} ${rs1} ${rs2} ${funct7} ${imm}`)
         
         let binary = 0;
         binary |= opcode;
@@ -720,7 +738,7 @@ var assemble = function(code) {
         binary |= funct7 << 25;
         binary |= imm;
 
-        console.log(binary, (binary.toString(16)).padStart(8, "0").toUpperCase())
+        //console.log(binary, (binary.toString(16)).padStart(8, "0").toUpperCase())
 
         binary_output.push(binary);
     }
